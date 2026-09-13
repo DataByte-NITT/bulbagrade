@@ -1,0 +1,75 @@
+name: Release docs
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  release-docs:
+    name: Release documentation
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.base_url }}
+
+    defaults:
+      run:
+        working-directory: docs
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: '${{ github.workspace }}/docs'
+
+      - name: Set release version
+        working-directory: ${{ github.workspace }}
+        env:
+          INPUTS_VERSION: ${{ github.event.inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version="${INPUTS_VERSION:-${REF_NAME}}"
+          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+          echo "Release version: $version"
+
+      - name: Build documentation site
+        run: npm run build
+        working-directory: '${{ github.workspace }}/docs'
+
+      - name: Setup GitHub pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
+        id: pages
+
+      # Uncomment the following lines to deploy the documentation site.
+      # - name: Upload documentation site
+      #   uses: actions/upload-pages-artifact@v3
+      #   with:
+      #     path: "docs/build"
+      #
+      # - name: Deploy documentation site
+      #   uses: actions/deploy-pages@v4
